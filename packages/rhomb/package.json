@@ -1,6 +1,6 @@
 {
   "name": "rhomb",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Implementation of reactive element.",
   "type": "module",
   "scripts": {
