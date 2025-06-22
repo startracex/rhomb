@@ -1,0 +1,24 @@
+{
+  "scripts": {
+    "build": "turbo run build",
+    "fmt": "dprint fmt",
+    "lint": "biome lint --fix",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.0.4",
+    "@changesets/cli": "^2.29.5",
+    "@startracex/dev-config": "^0.3.0",
+    "@vitest/browser": "^3.2.4",
+    "dprint": "^0.50.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "webdriverio": "^9.15.0"
+  },
+  "name": "internal",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.12.1"
+}

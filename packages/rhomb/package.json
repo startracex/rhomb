@@ -1,0 +1,27 @@
+{
+  "name": "rhomb",
+  "version": "0.1.0",
+  "description": "Implementation of reactive element.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./*": "./*"
+  },
+  "files": [
+    "**/*.{js,d.ts}+(|.map)",
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/startracex/rhomb.git"
+  },
+  "keywords": [
+    "rhomb"
+  ],
+  "author": "startracex",
+  "license": "MIT"
+}

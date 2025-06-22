@@ -1,0 +1,6 @@
+node_modules
+__screenshots__
+.turbo
+*.map
+*.d.ts
+*.js

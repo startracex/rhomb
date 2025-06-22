@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "outDir": ".",
+    "allowJs": false,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noImplicitThis": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "isolatedDeclarations": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": []
+}
