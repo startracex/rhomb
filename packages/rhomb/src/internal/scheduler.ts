@@ -1,4 +1,4 @@
-import type { RhombElement } from "./element.ts";
+import type { RhombElement } from "../element.ts";
 import type { Snapshot } from "./snapshot.ts";
 
 export interface SchedulerInit {

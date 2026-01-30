@@ -1,5 +1,5 @@
 import { expect, describe, it } from "vitest";
-import { Snapshot } from "../src/snapshot.ts";
+import { Snapshot } from "../src/internal/snapshot.ts";
 
 describe("Snapshot", () => {
   it("should get values correctly", () => {

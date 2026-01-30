@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fromAttribute, toAttribute, normalizeAttribute } from "../src/attribute.ts";
+import { fromAttribute, toAttribute, normalizeAttribute } from "../src/internal/attribute.ts";
 
 describe("fromAttribute", () => {
   it("should return empty string value for null when type is Boolean", () => {

@@ -1,10 +1,10 @@
 import type { PropertyInit } from "./decorators/property.ts";
 
 import { customElement } from "./decorators/custom-element.ts";
-import { Delegate } from "./delegate.ts";
+import { Delegate } from "./internal/delegate.ts";
 import { ReactiveDefinition } from "./internal/reactive-definition.ts";
-import { Scheduler } from "./scheduler.ts";
-import { Snapshot } from "./snapshot.ts";
+import { Scheduler } from "./internal/scheduler.ts";
+import { Snapshot } from "./internal/snapshot.ts";
 
 export type ReactiveProperties<T = any> = {
   [K in keyof T]?: PropertyInit<T>;

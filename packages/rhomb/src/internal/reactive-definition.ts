@@ -1,6 +1,6 @@
 import type { PropertyInit } from "../decorators/property.ts";
 
-import { fromAttribute, normalizeAttribute, toAttribute } from "../attribute.ts";
+import { fromAttribute, normalizeAttribute, toAttribute } from "./attribute.ts";
 
 interface PropertyInitExtend {
   property: PropertyKey;

@@ -1,5 +1,5 @@
-import type { PropertyDefinition, ReactiveDefinition } from "./internal/reactive-definition.ts";
-import type { RhombElement } from "./element.ts";
+import type { PropertyDefinition, ReactiveDefinition } from "./reactive-definition.ts";
+import type { RhombElement } from "../element.ts";
 import type { Scheduler } from "./scheduler.ts";
 import type { Snapshot } from "./snapshot.ts";
 
