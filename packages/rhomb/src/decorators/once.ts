@@ -9,33 +9,31 @@ export const once: OnceDecorator = (
   descriptor?: PropertyDescriptor,
 ) => {
   const instanceMap = new WeakMap();
-  if (typeof propertyKeyOrContext !== "object") {
-    const originalMethod = descriptor.value;
-    descriptor.value = function (this: any, ...args: any[]) {
-      if (!instanceMap.has(this)) {
+  if (typeof propertyKeyOrContext === "object") {
+    const { name } = propertyKeyOrContext;
+    propertyKeyOrContext.addInitializer(function (this: any) {
+      const originalMethod = this[name];
+
+      this[name] = function <T extends any[], R>(this: any, ...args: T): R {
+        if (instanceMap.has(this)) {
+          return instanceMap.get(this);
+        }
         const result = originalMethod.apply(this, args);
         instanceMap.set(this, result);
         return result;
-      }
-      return instanceMap.get(this);
-    };
-
-    return descriptor;
+      };
+    });
+    return;
   }
-
-  const context = propertyKeyOrContext;
-  const methodName = context.name;
-
-  context.addInitializer(function (this: any) {
-    const originalMethod = this[methodName];
-
-    this[methodName] = function <T extends any[], R>(...args: T): R {
-      if (instanceMap.has(this)) {
-        return instanceMap.get(this);
-      }
+  const originalMethod = descriptor.value;
+  descriptor.value = function (this: any, ...args: any[]) {
+    if (!instanceMap.has(this)) {
       const result = originalMethod.apply(this, args);
       instanceMap.set(this, result);
       return result;
-    };
-  });
+    }
+    return instanceMap.get(this);
+  };
+
+  return descriptor;
 };

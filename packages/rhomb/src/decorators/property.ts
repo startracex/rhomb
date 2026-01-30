@@ -1,4 +1,22 @@
-import type { RhombElement } from "../element.js";
+import type { RhombElement } from "../element.ts";
+
+import { ReactiveDefinition, type PropertyDefinition } from "../internal/reactive-definition.ts";
+
+const loadOrStoreWithMetadata = (
+  rd: ReactiveDefinition,
+  property: PropertyKey,
+  init: PropertyInit & {
+    metadata?: DecoratorMetadataObject | undefined;
+  },
+): PropertyDefinition => {
+  const loaded = rd.loadProperty(property) as PropertyDefinition & {
+    metadata?: DecoratorMetadataObject | undefined;
+  };
+  if (loaded && init.metadata && loaded.metadata === init.metadata) {
+    return loaded;
+  }
+  return rd.store(property, init);
+};
 
 type ConstructorType<V> = V extends string
   ? StringConstructor
@@ -10,14 +28,14 @@ type ConstructorType<V> = V extends string
         ? new (...args: any[]) => V
         : any;
 
-export interface PropertyInit<T = RhombElement, V = any, Y = ConstructorType<V>> {
-  reflect?: boolean | ((this: T, value?: V) => boolean);
+export interface PropertyInit<T = any, V = any, Y = ConstructorType<V>> {
+  reflect?: boolean;
   attribute?: string | boolean;
   fromAttribute?: (this: T, attributeValue: string, type?: Y) => V;
   toAttribute?: (this: T, propertyValue: V, type?: Y) => string | null;
   type?: Y;
   hasChanged?: (value1: V, value2: V) => boolean;
-  descriptor?: PropertyDescriptor | undefined;
+  descriptor?: Pick<PropertyDescriptor, "set">;
 }
 
 export interface PropertyDecorator<T, V> {
@@ -31,43 +49,87 @@ export interface PropertyDecorator<T, V> {
     context: ClassAccessorDecoratorContext<T, V>,
   ): ClassAccessorDecoratorResult<T, any>;
   // field
-  (_: any, context: ClassFieldDecoratorContext<T, V>): void;
+  (_: undefined, context: ClassFieldDecoratorContext<T, V>): void;
   // setter
   (setter: (value: V) => void, key: ClassSetterDecoratorContext<T, V>): (this: T, value: V) => void;
 }
 
 export const property = <V, T extends RhombElement>(
-  propertyType: PropertyInit<T, V> = {},
+  propertyInit: PropertyInit<T, V> = {},
 ): PropertyDecorator<T, V> => {
   return (
-    arg0: T | ClassAccessorDecoratorTarget<T, V> | ((value: V) => void),
-    arg1:
+    target: T | ClassAccessorDecoratorTarget<T, V> | undefined | ((value: V) => void),
+    nameOrContext:
       | PropertyKey
       | ClassAccessorDecoratorContext<T, V>
       | ClassFieldDecoratorContext<T, V>
       | ClassSetterDecoratorContext<T, V>,
     _?: PropertyDescriptor,
   ): any => {
-    if (typeof arg1 !== "object") {
-      const descriptor = Object.getOwnPropertyDescriptor(arg0, arg1);
-      if (descriptor === undefined) {
-        (arg0.constructor as typeof RhombElement).properties[arg1] = propertyType;
-      } else {
-        (arg0.constructor as typeof RhombElement).properties[arg1] = {
-          ...propertyType,
-          descriptor,
+    if (typeof nameOrContext === "object") {
+      const { kind, name, metadata } = nameOrContext;
+
+      if (kind === "setter") {
+        const descriptor = {
+          set(this: T, value: any) {
+            (target as (this: T, value: V) => void).call(this, value);
+          },
+        };
+
+        nameOrContext.addInitializer(function (this: T) {
+          loadOrStoreWithMetadata(ReactiveDefinition.load(this.constructor), name, {
+            ...propertyInit,
+            descriptor,
+            metadata,
+          });
+        });
+        return function (this: RhombElement, value) {
+          this.delegate.setDelegateValue(name, value);
         };
       }
-      return;
+
+      if (kind === "accessor") {
+        const descriptor = {
+          set(this: T, value: any) {
+            (target as ClassAccessorDecoratorTarget<T, V>).set.call(this, value);
+          },
+        };
+
+        nameOrContext.addInitializer(function (this: T) {
+          loadOrStoreWithMetadata(ReactiveDefinition.load(this.constructor), name, {
+            ...propertyInit,
+            descriptor,
+            metadata,
+          });
+        });
+
+        return {
+          set(this: T, value: any) {
+            this.delegate.setDelegateValue(name, value);
+          },
+        };
+      }
+
+      return nameOrContext.addInitializer(function (this: T) {
+        const config = loadOrStoreWithMetadata(ReactiveDefinition.load(this.constructor), name, {
+          ...propertyInit,
+          metadata,
+        });
+        /* manual set value to this[name] */
+        this.delegate.setDelegateValue(name, this[name]);
+        /* redefine property after value is set */
+        this.delegate.defineProperty(config);
+      });
     }
-    const { kind, name } = arg1;
-    arg1.addInitializer(function () {
-      (this.constructor as typeof RhombElement).properties[name] ??= {
-        ...propertyType,
-        descriptor: {
-          set: kind === "setter" ? (arg0 as (value: any) => void) : undefined,
-        },
-      };
+
+    const descriptor = Object.getOwnPropertyDescriptor(target, nameOrContext);
+    ReactiveDefinition.load(target.constructor).store(nameOrContext, {
+      ...propertyInit,
+      descriptor,
     });
+
+    if (Object.hasOwn(target as object, nameOrContext)) {
+      return descriptor;
+    }
   };
 };
