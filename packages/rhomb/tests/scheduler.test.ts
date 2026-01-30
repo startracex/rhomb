@@ -1,58 +1,56 @@
-import { expect, describe, it, vi, beforeEach, Mock } from "vitest";
-import { Scheduler } from "../src/scheduler";
-import { Snapshot } from "../src/snapshot";
+import { expect, describe, it, vi, beforeEach } from "vitest";
+import { RhombElement } from "../src/element.ts";
+
+class TestElement extends RhombElement {
+  update = vi.fn();
+  shouldUpdate = vi.fn().mockReturnValue(true);
+}
+
+customElements.define("test-element", TestElement);
 
 describe("Scheduler", () => {
-  let snapshot: Snapshot;
-  let updateMock: Mock;
-  let shouldUpdateMock: Mock;
-  let isConnectedMock: Mock;
-  let scheduler: Scheduler;
+  let element: TestElement;
+  let scheduler: TestElement["scheduler"];
+  let snapshot: TestElement["snapshot"];
 
   beforeEach(() => {
-    snapshot = new Snapshot();
-    updateMock = vi.fn();
-    shouldUpdateMock = vi.fn().mockReturnValue(true);
-    isConnectedMock = vi.fn().mockReturnValue(true);
-
-    scheduler = new Scheduler({
-      snapshot,
-      callbacks: {
-        update: updateMock,
-        shouldUpdate: shouldUpdateMock,
-      },
-      performable: isConnectedMock,
-    });
+    element = new TestElement();
+    // @ts-ignore
+    scheduler = element.scheduler;
+    // @ts-ignore
+    snapshot = element.snapshot;
   });
 
   it("should return resolved promise when no update is pending", () => {
     expect(scheduler.updateComplete).toBeInstanceOf(Promise);
   });
 
-  it("should not perform update when performable", async () => {
-    isConnectedMock.mockReturnValue(false);
+  it("should not perform update when element is not connected", async () => {
     await scheduler.performUpdate();
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(element.update).not.toHaveBeenCalled();
   });
 
-  it("should perform update when no performable", async () => {
+  it("should perform update when element is connected", async () => {
+    document.body.replaceChildren(element);
     snapshot.update("test", "value");
     await scheduler.performUpdate();
-    expect(updateMock).toHaveBeenCalledWith(snapshot.changes);
+    expect(element.update).toHaveBeenCalledWith(snapshot.changes);
     expect(snapshot.changes.size).toBe(0);
   });
 
-  it("should rollback changes when shouldUpdate returns false", async () => {
-    shouldUpdateMock.mockReturnValue(false);
+  it("should preserve changes when shouldUpdate returns false", async () => {
+    document.body.replaceChildren(element);
+    element.shouldUpdate.mockReturnValue(false);
     snapshot.update("test", "value");
     await scheduler.performUpdate();
-    expect(updateMock).not.toHaveBeenCalled();
-    expect(snapshot.get("test")).toBe(undefined);
+    expect(element.update).not.toHaveBeenCalled();
+    expect(snapshot.get("test")).toBe("value");
   });
 
   it("should queue updates in microtasks", async () => {
+    document.body.replaceChildren(element);
     const executionOrder: string[] = [];
-    updateMock.mockImplementation(() => {
+    element.update.mockImplementation(() => {
       executionOrder.push("update");
     });
 
@@ -66,8 +64,9 @@ describe("Scheduler", () => {
   });
 
   it("should not queue multiple updates when one is pending", async () => {
+    document.body.replaceChildren(element);
     let updateCount = 0;
-    updateMock.mockImplementation(() => {
+    element.update.mockImplementation(() => {
       updateCount++;
     });
 
@@ -79,17 +78,13 @@ describe("Scheduler", () => {
   });
 
   it("should handle async updates", async () => {
-    const asyncUpdate = vi.fn().mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
+    document.body.replaceChildren(element);
 
-    scheduler = new Scheduler({
-      snapshot,
-      callbacks: {
-        update: asyncUpdate,
-        shouldUpdate: shouldUpdateMock,
-      },
-      performable: isConnectedMock,
-    });
+    const asyncUpdate = vi
+      .fn()
+      .mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 10)));
 
+    element.update = asyncUpdate;
     snapshot.update("test", "value");
     const updatePromise = scheduler.requestUpdate();
     expect(scheduler.updatePending).toBe(true);
@@ -100,15 +95,18 @@ describe("Scheduler", () => {
   });
 
   it("should support multiple property updates before performing update", async () => {
+    document.body.replaceChildren(element);
     snapshot.update("prop1", "value1");
     snapshot.update("prop2", "value2");
 
     await scheduler.performUpdate();
-    expect(updateMock).toHaveBeenCalledWith(snapshot.changes);
-    expect(shouldUpdateMock).toHaveBeenCalledWith(snapshot.changes);
+    expect(element.update).toHaveBeenCalledWith(snapshot.changes);
+    expect(element.shouldUpdate).toHaveBeenCalledWith(snapshot.changes);
   });
 
   it("should maintain correct state after multiple update cycles", async () => {
+    document.body.replaceChildren(element);
+
     // First update cycle
     snapshot.update("test1", "value1");
     await scheduler.requestUpdate();
@@ -119,6 +117,6 @@ describe("Scheduler", () => {
     await scheduler.requestUpdate();
     expect(snapshot.get("test2")).toBe("value2");
 
-    expect(updateMock).toHaveBeenCalledTimes(2);
+    expect(element.update).toHaveBeenCalledTimes(2);
   });
 });

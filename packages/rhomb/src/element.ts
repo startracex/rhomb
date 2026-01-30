@@ -27,12 +27,8 @@ export class RhombElement extends HTMLElement {
 
   protected snapshot: Snapshot = new Snapshot();
   protected scheduler: Scheduler = new Scheduler({
-    performable: () => this.isConnected,
+    host: this,
     snapshot: this.snapshot,
-    callbacks: {
-      update: this.update.bind(this),
-      shouldUpdate: this.shouldUpdate.bind(this),
-    },
   });
   protected delegate: Delegate = new DefaultDelegate({
     target: this,
@@ -101,7 +97,7 @@ export class RhombElement extends HTMLElement {
   requestUpdate(): Promise<void> {
     return this.scheduler.requestUpdate();
   }
-  protected shouldUpdate(changes: Map<PropertyKey, any>): boolean {
+  shouldUpdate(changes: Map<PropertyKey, any>): boolean {
     return true;
   }
 

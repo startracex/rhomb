@@ -1,14 +1,9 @@
-import type { Snapshot } from "./snapshot.js";
-
-interface SchedulerCallbacks {
-  shouldUpdate?: (changes?: Map<PropertyKey, any>) => boolean;
-  update: (changes?: Map<PropertyKey, any>) => Promise<void> | void;
-}
+import type { RhombElement } from "./element.ts";
+import type { Snapshot } from "./snapshot.ts";
 
 export interface SchedulerInit {
-  performable(): boolean;
   snapshot: Snapshot<PropertyKey, any>;
-  callbacks: SchedulerCallbacks;
+  host: RhombElement;
 }
 
 /**
@@ -19,20 +14,7 @@ export interface SchedulerInit {
 export class Scheduler {
   updatePending = false;
   updateResolve: (() => void) | null = null;
-  protected _updateComplete: Promise<void> | null = null;
-  snapshot: Snapshot<PropertyKey, any>;
-  callbacks: SchedulerCallbacks;
-  performable?: () => boolean;
-
-  constructor({ snapshot, callbacks, performable }: SchedulerInit) {
-    this.snapshot = snapshot;
-    this.callbacks = callbacks;
-    this.performable = performable;
-  }
-
-  get updateComplete(): Promise<void> {
-    return this._updateComplete || Promise.resolve();
-  }
+  updateComplete: Promise<void> | null = Promise.resolve();
 
   requestUpdate(): Promise<void> {
     if (this.updatePending) {
@@ -40,7 +22,8 @@ export class Scheduler {
     }
 
     this.updatePending = true;
-    this._updateComplete = new Promise((resolve) => {
+
+    this.updateComplete = new Promise((resolve) => {
       this.updateResolve = resolve;
     });
 
@@ -55,20 +38,26 @@ export class Scheduler {
     return this.updateComplete;
   }
 
+  snapshot: Snapshot<PropertyKey, any>;
+  host: RhombElement;
+
+  constructor({ snapshot, host }: SchedulerInit) {
+    this.snapshot = snapshot;
+    this.host = host;
+  }
+
   async performUpdate(): Promise<void> {
-    if (this.performable && !this.performable()) {
+    if (!this.host.isConnected) {
       return;
     }
 
     const { changes } = this.snapshot;
+    const shouldUpdate = this.host.shouldUpdate(changes) ?? true;
 
-    const shouldUpdate = this.callbacks.shouldUpdate?.(changes) ?? true;
-
-    if (shouldUpdate) {
-      await this.callbacks.update?.(changes);
-      this.snapshot.commit();
-    } else {
-      this.snapshot.rollback();
+    if (!shouldUpdate) {
+      return;
     }
+    await this.host.update(changes);
+    this.snapshot.commit();
   }
 }
