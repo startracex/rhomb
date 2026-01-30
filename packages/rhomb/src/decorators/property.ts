@@ -10,7 +10,7 @@ type ConstructorType<V> = V extends string
         ? new (...args: any[]) => V
         : any;
 
-export interface ReactivePropertyInit<T extends RhombElement = RhombElement, V = any, Y = ConstructorType<V>> {
+export interface PropertyInit<T = RhombElement, V = any, Y = ConstructorType<V>> {
   reflect?: boolean | ((this: T, value?: V) => boolean);
   attribute?: string | boolean;
   fromAttribute?: (this: T, attributeValue: string, type?: Y) => V;
@@ -37,7 +37,7 @@ export interface PropertyDecorator<T, V> {
 }
 
 export const property = <V, T extends RhombElement>(
-  propertyType: ReactivePropertyInit<T, V> = {},
+  propertyType: PropertyInit<T, V> = {},
 ): PropertyDecorator<T, V> => {
   return (
     arg0: T | ClassAccessorDecoratorTarget<T, V> | ((value: V) => void),

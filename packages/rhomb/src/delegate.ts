@@ -1,157 +1,138 @@
-import { normalizeAttribute, fromAttribute, toAttribute, updateAttribute } from "./attribute.js";
-import type { ReactivePropertyInit } from "./decorators/property.js";
-import type { Scheduler } from "./scheduler.js";
+import type { PropertyDefinition, ReactiveDefinition } from "./internal/reactive-definition.ts";
+import type { RhombElement } from "./element.ts";
+import type { Scheduler } from "./scheduler.ts";
+import type { Snapshot } from "./snapshot.ts";
 
-export interface DelegateClient {
-  property: PropertyKey;
-  attribute: string;
-  config: ReactivePropertyInit;
-}
+import { updateAttribute } from "./attribute.ts";
 
 export interface DelegateInit {
-  target: HTMLElement;
+  host: RhombElement;
   scheduler: Scheduler;
+  snapshot: Snapshot;
+  reactiveDefinition: ReactiveDefinition;
 }
 
 /**
- * Delegate manages the access and update of property and the mapping to html properties,
- * initializes properties and defines accessors and setters for properties,
- * reflecting and updating when properties change.
+ * Delegate is used for the value of proxy properties and reflects it to element attributes.
  */
-export abstract class Delegate<C extends DelegateClient = DelegateClient> {
-  properties: Map<PropertyKey, C> = new Map();
-  attributes: Map<string, C> = new Map();
-  scheduler: Scheduler;
-  target: Element;
+export class Delegate {
+  protected reactiveDefinition: ReactiveDefinition;
+  protected scheduler: Scheduler;
+  protected snapshot: Snapshot;
+  protected host: RhombElement;
+  protected values = {};
+  protected reflecting: boolean;
+  protected isConnected = false;
 
-  constructor({ target, scheduler }: DelegateInit) {
-    this.target = target;
+  constructor({ host, scheduler, snapshot, reactiveDefinition }: DelegateInit) {
     this.scheduler = scheduler;
+    this.snapshot = snapshot;
+    this.host = host;
+    this.reactiveDefinition = reactiveDefinition;
   }
 
-  add(propertyName: PropertyKey, config: ReactivePropertyInit): void {
-    const delegate = this.initializeProperty(propertyName, config);
-    this.defineProperty(delegate);
-    this.reflectProperty(delegate);
-  }
-
-  initializeProperty(propertyName: PropertyKey, config: ReactivePropertyInit): C {
-    const attributeName = normalizeAttribute(config.attribute, propertyName);
-    const delegate = {
-      attribute: attributeName,
-      property: propertyName,
-      config,
-    } as C;
-    this.initialDelegateValue(delegate);
-    this.properties.set(propertyName, delegate);
-    if (attributeName) {
-      this.attributes.set(attributeName, delegate);
-      const attributeValue = this.target.getAttribute(attributeName);
-      if (attributeValue !== null) {
-        const newValue = this._fromAttribute(delegate, attributeValue);
-        this.setDelegateValue(delegate, newValue);
-      }
+  connect() {
+    if (this.isConnected) {
+      return;
     }
-    return delegate;
+    this.isConnected = true;
+    for (const config of this.reactiveDefinition.reactiveProperties) {
+      const { attribute, property } = config;
+      if (attribute) {
+        const attributeValue = this.host.getAttribute(attribute);
+        let value =
+          attributeValue !== null
+            ? this.fromAttribute(config, attributeValue)
+            : this.getTargetValue(property);
+
+        this.setDelegateValue(property, value);
+      }
+
+      // this.defineProperty(config);
+      this.reflect(config);
+    }
   }
 
-  defineProperty(delegate: C): boolean {
-    const { config, property: propertyName } = delegate;
-    return Reflect.defineProperty(this.target, propertyName, {
-      get: this.createGetter(delegate),
-      set: this.createSetter(delegate),
-      enumerable: config.descriptor?.enumerable ?? true,
+  disconnect() {
+    this.isConnected = false;
+  }
+
+  /**
+   * Reactive properties have been defined on prototype,
+   * called by standard field decorator.
+   */
+  defineProperty(config: PropertyDefinition): boolean {
+    return Reflect.defineProperty(this.host, config.property, {
+      get: () => this.getDelegateValue(config.property),
+      set: (newValue: any): void => this.setDelegateValue(config.property, newValue),
+      enumerable: true,
       configurable: true,
     });
   }
 
-  createGetter(delegate: C): () => any {
-    return delegate.config.descriptor?.get ?? (() => this.getDelegateValue(delegate));
-  }
-
-  createSetter(delegate: C): (newValue: any) => void {
-    return (newValue: any): void => {
-      const oldValue = this.getDelegateValue(delegate);
-      const { config, property: propertyName } = delegate;
-      const hasChanged = config?.hasChanged || ((v1, v2) => !Object.is(v1, v2));
-      if (hasChanged(oldValue, newValue)) {
-        this.reflecting = true;
-        this.setDelegateValue(delegate, newValue);
-        this.scheduler.snapshot.update(propertyName as any, newValue);
-        this.reflectProperty(delegate);
-        config?.descriptor?.set?.call(this.target, newValue);
-        this.scheduler.requestUpdate();
-        this.reflecting = false;
-      }
-    };
-  }
-
-  reflecting: boolean;
-  reflectProperty(delegate: C): void {
-    const { config, property: propertyName } = delegate;
-    if (config?.reflect) {
-      const attributeName = normalizeAttribute(config.attribute, propertyName);
-      if (!attributeName) {
-        return;
-      }
-      let attributeValue: string;
-      if (typeof config.reflect === "function") {
-        const canSet: boolean = config.reflect.call(this.target);
-        if (!canSet) {
-          return;
-        }
-      }
-      const value = this.getDelegateValue(delegate);
-      attributeValue = this._toAttribute(delegate, value);
-      updateAttribute(this.target, attributeName, attributeValue, true);
-    }
-  }
-
-  protected _fromAttribute(delegate: C, value: string): any {
-    const fromAttributeFn = delegate.config.fromAttribute ?? fromAttribute;
-    return fromAttributeFn.call(this.target, value, delegate.config.type);
-  }
-
-  protected _toAttribute({ config }: C, value: any): string {
-    const toAttributeFn = config.toAttribute ?? toAttribute;
-    return toAttributeFn.call(this.target, value, config.type);
-  }
-
-  setAttribute(name: string, newValue: string): void {
-    if (this.reflecting || !this.target.isConnected) {
+  reflect(config: PropertyDefinition): void {
+    if (!config.reflect || !this.host.isConnected) {
       return;
     }
-    const delegate = this.attributes.get(name);
+    this.reflecting = true;
+
+    const { attribute } = config;
+    if (!attribute) {
+      return;
+    }
+    const value = this.getDelegateValue(config.property);
+    const attributeValue = this.toAttribute(config, value);
+    updateAttribute(this.host, attribute, attributeValue);
+    this.reflecting = false;
+  }
+
+  changeAttribute(name: string, oldValue: string | null, newValue: string | null): void {
+    if (newValue === oldValue || this.reflecting || !this.host.isConnected) {
+      return;
+    }
+    const delegate = this.reactiveDefinition.loadAttribute(name);
     if (!delegate) {
       return;
     }
-    const newProperty = this._fromAttribute(delegate, newValue);
+    const newProperty = this.fromAttribute(delegate, newValue);
     this.setTargetValue(delegate.property, newProperty);
   }
 
-  getTargetValue(propertyKey: PropertyKey): any {
-    return Reflect.get(this.target, propertyKey);
+  getDelegateValue(property: PropertyKey): any {
+    return this.values[property];
   }
 
-  setTargetValue(propertyKey: PropertyKey, value: any): boolean {
-    return Reflect.set(this.target, propertyKey, value);
+  setDelegateValue(property: PropertyKey, newValue: any): void {
+    const config = this.reactiveDefinition.loadProperty(property);
+    if (!config) {
+      return;
+    }
+    const { descriptor, hasChanged } = config;
+    const oldValue = this.getDelegateValue(property);
+    if (!hasChanged(oldValue, newValue)) {
+      return;
+    }
+    /* if descriptor has setter, call setter when value changed */
+    descriptor.set?.call(this.host, newValue);
+    this.values[property] = newValue;
+    this.snapshot.update(property, newValue);
+    this.reflect(config);
+    this.scheduler.requestUpdate();
   }
 
-  abstract getDelegateValue(delegate: C): any;
-
-  abstract setDelegateValue(delegate: C, value: any): void;
-
-  initialDelegateValue(delegate: C): void {
-    const value = this.getTargetValue(delegate.property);
-    this.setDelegateValue(delegate, value);
+  protected fromAttribute(config: PropertyDefinition, value: string | null): any {
+    return config.fromAttribute.call(this.host, value, config.type);
   }
-}
 
-export class DefaultDelegate<C extends DelegateClient & { value: any }> extends Delegate<C> {
-  getDelegateValue(delegate: C): any {
-    return delegate.value;
+  protected toAttribute(config: PropertyDefinition, value: any): string | null {
+    return config.toAttribute.call(this.host, value, config.type);
   }
-  setDelegateValue(delegate: C, value: any): void {
-    delegate.value = value;
+
+  protected getTargetValue(property: PropertyKey): any {
+    return this.host[property];
+  }
+
+  protected setTargetValue(property: PropertyKey, value: any): void {
+    this.host[property] = value;
   }
 }

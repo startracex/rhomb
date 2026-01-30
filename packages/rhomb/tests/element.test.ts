@@ -1,19 +1,17 @@
 import { describe, it, beforeEach, expect } from "vitest";
-import { type ReactiveProperties, RhombElement } from "../src/element";
+import { type ReactiveProperties, RhombElement } from "../src/element.ts";
 
 class TestElement extends RhombElement {
   myProp: string = "my-prop-default";
   myBoolProp: boolean;
-  myNumberProp: number;
+  myNumberProp: number = 0;
   myCustomProp: string;
-  static properties: ReactiveProperties = {
-    myProp: { type: String, attribute: "my-prop", reflect: () => true },
+  static properties: ReactiveProperties<TestElement> = {
+    myProp: { type: String, attribute: "my-prop", reflect: true },
     myBoolProp: {
       type: Boolean,
       attribute: "my-bool-prop",
-      reflect: function (this: TestElement) {
-        return this.myBoolProp;
-      },
+      reflect: true,
     },
     myNumberProp: { type: Number, attribute: "my-number-prop", reflect: true },
     myCustomProp: {
@@ -46,13 +44,22 @@ describe("RhombElement", () => {
     document.body.innerHTML = "";
   });
 
+  it("should initialize with initial values", () => {
+    const element = document.createElement("test-element");
+    document.body.appendChild(element);
+    expect(element.myProp).toBe("my-prop-default");
+    expect(element.myNumberProp).toBe(0);
+    expect(element.myCustomProp).toBe(undefined);
+    expect(element.myBoolProp).toBe(undefined);
+  });
+
   it("should initialize properties", () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
+    document.body.appendChild(element);
     element.setAttribute("my-prop", "test");
     element.setAttribute("my-bool-prop", "");
     element.setAttribute("my-number-prop", "123");
     element.setAttribute("my-custom-prop", "test");
-    document.body.appendChild(element);
     expect(element.myProp).toBe("test");
     expect(element.myBoolProp).toBe(true);
     expect(element.myNumberProp).toBe(123);
@@ -60,13 +67,13 @@ describe("RhombElement", () => {
   });
 
   it("should initialize properties from attributes", () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
     document.body.appendChild(element);
     expect(element.myProp).toBe("my-prop-default");
   });
 
   it("should reflect properties to attributes", () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
     document.body.appendChild(element);
     element.myProp = "new-test";
     element.myBoolProp = false;
@@ -79,7 +86,7 @@ describe("RhombElement", () => {
   });
 
   it("should update properties when attributes change", async () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
     document.body.appendChild(element);
     element.setAttribute("my-prop", "changed");
     expect(element.myProp).toBe("changed");
@@ -88,14 +95,14 @@ describe("RhombElement", () => {
   });
 
   it("should call setter when property is set", () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
     document.body.appendChild(element);
     element.mySetterProp = "setter-value";
     expect(element.getAttribute("setter-prop")).toBe("setter-value");
   });
 
   it("should not reflect when set by attribute", async () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
     document.body.appendChild(element);
     element.myProp = "initial";
     element.setAttribute("my-prop", "changed");
@@ -106,7 +113,8 @@ describe("RhombElement", () => {
   });
 
   it("should merge update requests", async () => {
-    const element = document.createElement("test-element") as TestElement;
+    const element = document.createElement("test-element");
+
     document.body.appendChild(element);
     for (let i = 0; i <= 10; i++) {
       element.myNumberProp = i;
@@ -116,16 +124,17 @@ describe("RhombElement", () => {
     expect(element.updateCount).toBe(1);
   });
 });
+
 class ParentElement extends RhombElement {
   parentProp: string = "parent-prop-default";
-  static properties: ReactiveProperties = {
+  static properties: ReactiveProperties<ParentElement> = {
     parentProp: { type: String, attribute: "parent-prop", reflect: true },
   };
 }
 
 class ChildElement extends ParentElement {
   childProp: string = "child-prop-default";
-  static properties: ReactiveProperties = {
+  static properties: ReactiveProperties<ChildElement> = {
     childProp: { type: String, attribute: "child-prop", reflect: true },
   };
 }
@@ -135,22 +144,21 @@ customElements.define("child-element", ChildElement);
 
 describe("Inheritance", () => {
   beforeEach(() => {
-    document.body.innerHTML = "";
+    document.body.replaceChildren();
   });
 
   it("should inherit properties from parent", () => {
-    const childElement = document.createElement("child-element") as ChildElement;
+    const childElement = document.createElement("child-element");
     document.body.appendChild(childElement);
-
     expect(childElement.parentProp).toBe("parent-prop-default");
     expect(childElement.childProp).toBe("child-prop-default");
   });
 
   it("should reflect properties to attributes", () => {
-    const childElement = document.createElement("child-element") as ChildElement;
-    document.body.appendChild(childElement);
+    const childElement = document.createElement("child-element");
     childElement.parentProp = "new-parent-prop";
     childElement.childProp = "new-child-prop";
+    document.body.appendChild(childElement);
     expect(childElement.getAttribute("parent-prop")).toBe("new-parent-prop");
     expect(childElement.getAttribute("child-prop")).toBe("new-child-prop");
   });
@@ -164,3 +172,11 @@ describe("Inheritance", () => {
     expect(childElement.hasAttribute("parent-prop")).toBe(false);
   });
 });
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "test-element": TestElement;
+    "parent-element": ParentElement;
+    "child-element": ChildElement;
+  }
+}
