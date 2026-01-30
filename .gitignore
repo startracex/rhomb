@@ -1,6 +1,7 @@
 node_modules
 __screenshots__
 .turbo
+*.tsbuildinfo
 *.map
 *.d.ts
 *.js

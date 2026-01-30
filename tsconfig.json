@@ -1,19 +1,24 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
     "skipDefaultLibCheck": true,
     "skipLibCheck": true,
-    "noImplicitThis": true,
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
-    "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true,
-    "noEmit": true,
-    "types": ["@vitest/browser/providers/webdriverio"]
+    "useDefineForClassFields": false,
+    "resolveJsonModule": true,
+    "resolvePackageJsonImports": true,
+    "resolvePackageJsonExports": true,
+    "isolatedModules": true,
+    "noImplicitThis": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "erasableSyntaxOnly": true,
+    "noEmit": true
   },
   "include": ["vitest.config.ts", "**/*.test.ts"]
 }
