@@ -1,68 +1,83 @@
 export const fromAttribute = (value: string | null, type: any): any => {
-  if (type === Boolean) {
-    if (value === null || value === "false") {
-      return false;
-    }
-    return true;
+  if (!type || type === String) {
+    return value ? String(value) : "";
   }
-  if (type === Number) {
-    return Number(value);
+  if (type === Boolean) {
+    return value !== null;
+  }
+  if (type === Number || type === BigInt) {
+    return type(value);
   }
   if (type === Array || type === Object) {
     try {
       return JSON.parse(value);
     } catch {
-      return value;
+      return null;
     }
   }
-  return value;
+  return new type(value);
 };
 
 export const toAttribute = (value: any, type: any): string | null => {
-  if (type === Array || type === Object) {
-    return JSON.stringify(value);
-  }
-  if (value === false || value === null) {
+  if (value === null || value === undefined) {
     return null;
   }
-  if (value === true) {
-    return "";
+  if (type === Boolean) {
+    return value ? "" : null;
+  }
+  if (type === Array || type === Object) {
+    return JSON.stringify(value);
   }
   return String(value);
 };
 
-export const normalizeAttribute = (attribute: string | boolean, property: PropertyKey): string | undefined => {
-  if (attribute === true || attribute === undefined) {
+export const normalizeAttribute = (
+  attribute: string | boolean = true,
+  property: PropertyKey,
+): string | null => {
+  if (attribute === true) {
     return String(property).toLowerCase();
   }
-  if (attribute) {
-    return attribute;
-  }
+  return attribute || null;
 };
 
-const noAttribute = (value: any): boolean => value === null || value === undefined || value === false;
-
-const removeAttribute = (element: Element, name: string, currentCheck?: boolean): void => {
-  if (currentCheck && !element.hasAttribute(name)) {
-    return;
+export const removeAttribute = (
+  element: Element,
+  name: string,
+  currentCheck?: boolean,
+): boolean => {
+  if (currentCheck) {
+    if (!element.hasAttribute(name)) {
+      return false;
+    }
   }
   element.removeAttribute(name);
+  return true;
 };
 
-const setAttribute = (element: Element, name: string, value: any, currentCheck?: boolean) => {
+export const setAttribute = (
+  element: Element,
+  name: string,
+  value: string,
+  currentCheck?: boolean,
+): boolean => {
   if (currentCheck) {
-    const current = element.getAttribute(name);
-    if (current !== null && current === value) {
-      return;
+    if (element.getAttribute(name) === value) {
+      return false;
     }
   }
   element.setAttribute(name, value);
+  return true;
 };
 
-export const updateAttribute = (element: Element, name: string, value: any, currentCheck?: boolean): void => {
-  if (noAttribute(value)) {
-    removeAttribute(element, name, currentCheck);
-    return;
+export const updateAttribute = (
+  element: Element,
+  name: string,
+  value: string | null,
+  currentCheck?: boolean,
+): boolean => {
+  if (value === null) {
+    return removeAttribute(element, name, currentCheck);
   }
-  setAttribute(element, name, value === true ? "" : String(value), currentCheck);
+  return setAttribute(element, name, String(value), currentCheck);
 };
