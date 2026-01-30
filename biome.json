@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.4/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["@startracex/dev-config/biome"],
   "vcs": {
     "enabled": true,
@@ -19,7 +19,6 @@
       "style": {
         "noParameterAssign": "error",
         "useAsConstAssertion": "error",
-        "useDefaultParameterLast": "error",
         "useEnumInitializers": "error",
         "useSelfClosingElements": "error",
         "useSingleVarDeclarator": "error",
