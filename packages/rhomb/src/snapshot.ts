@@ -6,10 +6,12 @@ export class Snapshot<K = PropertyKey, V = any> {
   current: Map<K, V>;
   previous: Map<K, V>;
   changes: Map<K, V> = new Map();
+  hasChanged = false;
 
-  constructor(initialEntries?: Iterable<readonly [K, V]> | null) {
-    this.current = new Map(initialEntries);
-    this.previous = new Map(initialEntries);
+  constructor(initialEntries?: Iterable<readonly [K, V]>) {
+    const initialMap = new Map(initialEntries);
+    this.current = initialMap;
+    this.previous = initialMap;
   }
 
   get(key: K): V | undefined {
@@ -18,16 +20,27 @@ export class Snapshot<K = PropertyKey, V = any> {
 
   update(key: K, value: V): void {
     this.changes.set(key, value);
+
+    if (!this.hasChanged) {
+      this.current = new Map(this.current);
+    }
+
     this.current.set(key, value);
+    this.hasChanged = true;
   }
 
   commit(): void {
-    this.previous = new Map(this.current);
+    if (!this.changes.size) {
+      return;
+    }
+    this.hasChanged = false;
+    this.previous = this.current;
     this.changes.clear();
   }
 
   rollback(): void {
-    this.current = new Map(this.previous);
+    this.hasChanged = false;
+    this.current = this.previous;
     this.changes.clear();
   }
 }

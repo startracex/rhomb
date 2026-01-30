@@ -1,5 +1,5 @@
 import { expect, describe, it } from "vitest";
-import { Snapshot } from "../src/snapshot";
+import { Snapshot } from "../src/snapshot.ts";
 
 describe("Snapshot", () => {
   it("should get values correctly", () => {
@@ -51,16 +51,12 @@ describe("Snapshot", () => {
     snapshot.update("numberKey", 123);
     snapshot.update("booleanKey", true);
     snapshot.update("objectKey", { test: "value" });
+    snapshot.update("undefinedKey", undefined);
+    snapshot.update("nullKey", null);
 
     expect(snapshot.get("numberKey")).toBe(123);
     expect(snapshot.get("booleanKey")).toBe(true);
     expect(snapshot.get("objectKey")).toEqual({ test: "value" });
-  });
-
-  it("should handle undefined and null values", () => {
-    const snapshot = new Snapshot<string, any>();
-    snapshot.update("undefinedKey", undefined);
-    snapshot.update("nullKey", null);
 
     expect(snapshot.get("undefinedKey")).toBe(undefined);
     expect(snapshot.get("nullKey")).toBe(null);
