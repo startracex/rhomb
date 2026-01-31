@@ -110,7 +110,7 @@ export const property = <V, T extends RhombElement>(
         };
       }
 
-      return nameOrContext.addInitializer(function (this: T) {
+      nameOrContext.addInitializer(function (this: T) {
         const config = loadOrStoreWithMetadata(ReactiveDefinition.load(this.constructor), name, {
           ...propertyInit,
           metadata,
@@ -120,6 +120,8 @@ export const property = <V, T extends RhombElement>(
         /* redefine property after value is set */
         this.delegate.defineProperty(config);
       });
+
+      return;
     }
 
     const descriptor = Object.getOwnPropertyDescriptor(target, nameOrContext);
